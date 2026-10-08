@@ -30,7 +30,7 @@ jobs:
       flatcar_version: ${{ steps.versions.outputs.flatcar_version }}
       k3s_version: ${{ steps.versions.outputs.k3s_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: versions
         env:
           GH_TOKEN: ${{ github.token }}
@@ -69,12 +69,12 @@ jobs:
       matrix:
         variant: [flatcar, flatcar-k3s]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: |
           sudo apt-get update
           sudo apt-get install -y btrfs-progs lvm2 gawk zstd
       - run: ./scripts/build-disk.sh "${{ matrix.variant }}" "${{ needs.check.outputs.flatcar_version }}" "${{ needs.check.outputs.k3s_version }}" "$RUNNER_TEMP/disk.img.zst"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: disk-${{ matrix.variant }}
           path: ${{ runner.temp }}/disk.img.zst
@@ -88,12 +88,20 @@ jobs:
       matrix:
         variant: [flatcar, flatcar-k3s]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v8
         with:
           name: disk-${{ matrix.variant }}
           path: ${{ runner.temp }}
-      - run: brew install cirruslabs/cli/tart zstd
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download -R cirruslabs/tart --pattern 'tart.tar.gz' --pattern 'tart_*_checksums.txt' --dir "$RUNNER_TEMP/tart"
+          cd "$RUNNER_TEMP/tart"
+          shasum -a 256 -c tart_*_checksums.txt
+          tar xzf tart.tar.gz
+          echo "$RUNNER_TEMP/tart/tart.app/Contents/MacOS" >> "$GITHUB_PATH"
+          command -v zstd || brew install zstd
       - env:
           TART_REGISTRY_HOSTNAME: ghcr.io
           TART_REGISTRY_USERNAME: ${{ github.actor }}
@@ -105,7 +113,7 @@ jobs:
     if: needs.check.outputs.changed == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - env:
           FLATCAR_VERSION: ${{ needs.check.outputs.flatcar_version }}
         run: |
