@@ -1,0 +1,15 @@
+{
+  "arch": "arm64",
+  "cpuCount": 2,
+  "cpuCountMin": 2,
+  "diskFormat": "raw",
+  "display": {
+    "height": 768,
+    "width": 1024
+  },
+  "macAddress": "22:3e:95:7f:74:cf",
+  "memorySize": 2147483648,
+  "memorySizeMin": 2147483648,
+  "os": "linux",
+  "version": 1
+}
