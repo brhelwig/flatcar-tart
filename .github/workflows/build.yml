@@ -71,7 +71,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        variant: [flatcar, flatcar-k3s]
+        variant: [flatcar, flatcar-k3s, flatcar-tailscale, flatcar-k3s-tailscale]
     steps:
       - uses: actions/checkout@v5
       - run: |
@@ -90,7 +90,7 @@ jobs:
     runs-on: macos-15
     strategy:
       matrix:
-        variant: [flatcar, flatcar-k3s]
+        variant: [flatcar, flatcar-k3s, flatcar-tailscale, flatcar-k3s-tailscale]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v8

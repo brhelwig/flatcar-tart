@@ -1,18 +1,8 @@
 variant: flatcar
 version: 1.1.0
 
-ignition:
-  config:
-    merge:
-      - local: base.ign
-
 storage:
   files:
-    - path: /etc/hostname
-      mode: 0644
-      overwrite: true
-      contents:
-        inline: flatcar-k3s
     - path: /opt/extensions/k3s/k3s-@K3S_VERSION@-arm64.raw
       mode: 0644
       contents:
@@ -20,6 +10,9 @@ storage:
     - path: /etc/sysupdate.k3s-@K3S_MINOR@.d/k3s-@K3S_MINOR@.conf
       contents:
         source: https://extensions.flatcar.org/extensions/k3s/k3s-@K3S_MINOR@.conf
+    - path: /etc/sysupdate.d/noop.conf
+      contents:
+        source: https://extensions.flatcar.org/extensions/noop.conf
     - path: /etc/rancher/k3s/config.yaml
       mode: 0644
       contents:
@@ -35,6 +28,8 @@ storage:
 
 systemd:
   units:
+    - name: systemd-sysupdate.timer
+      enabled: true
     - name: systemd-sysupdate.service
       dropins:
         - name: k3s.conf

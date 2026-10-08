@@ -5,8 +5,10 @@
 
 | Image | Contents |
 |---|---|
-| `ghcr.io/brhelwig/flatcar` | Flatcar with [Tailscale](https://tailscale.com/) |
-| `ghcr.io/brhelwig/flatcar-k3s` | Flatcar with Tailscale and a single-node [k3s](https://k3s.io/) server |
+| `ghcr.io/brhelwig/flatcar` | Flatcar |
+| `ghcr.io/brhelwig/flatcar-k3s` | Flatcar with a single-node [k3s](https://k3s.io/) server |
+| `ghcr.io/brhelwig/flatcar-tailscale` | Flatcar with [Tailscale](https://tailscale.com/) |
+| `ghcr.io/brhelwig/flatcar-k3s-tailscale` | Flatcar with k3s and Tailscale |
 
 Tags: `latest` and `stable` follow the newest Flatcar stable release; `<version>` (for example
 `4757.2.1`) pins one.
@@ -26,7 +28,7 @@ Configuration is applied by Ignition on first boot, so the first start takes a l
 
 ### Tailscale
 
-`tailscaled` runs at boot. Join your tailnet with:
+In the `-tailscale` images `tailscaled` runs at boot. Join your tailnet with:
 
 ```sh
 sudo tailscale up
@@ -88,9 +90,11 @@ Running VMs update themselves through Flatcar's own update engine.
 
 ## How the images are built
 
-1. On Linux, `scripts/build-disk.sh` transpiles the Butane configs in `butane/`, writes Flatcar to
+1. On Linux, `scripts/build-disk.sh` combines `butane/base.yaml` with the variant's add-ons
+   (`k3s.yaml`, `tailscale.yaml`), writes Flatcar to
    a 20 GB disk image with Flatcar's `flatcar-install`, embeds the Ignition config, and points the
    kernel console at Tart's devices.
-2. On macOS, `scripts/package-tart.sh` creates a Tart Linux VM around that disk and pushes it.
+2. On macOS, `scripts/package-tart.sh` places that disk next to the VM template in `tart/` and
+   pushes it with Tart.
 
 Run a build manually with `gh workflow run build.yml`.

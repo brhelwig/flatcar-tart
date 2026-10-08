@@ -16,22 +16,31 @@ butane() {
   docker run --rm -i -v "$work:/files:ro" "$butane_image" --strict --files-dir /files
 }
 
-sed -e "s/@TAILSCALE_VERSION@/$tailscale_version/g" "$repo/butane/base.yaml" | butane > "$work/base.ign"
-
 case "$variant" in
-  flatcar)
-    cp "$work/base.ign" "$work/config.ign"
-    ;;
-  flatcar-k3s)
-    k3s_minor=$(echo "$k3s_version" | cut -d. -f1-2)
-    sed -e "s/@K3S_VERSION@/$k3s_version/g" -e "s/@K3S_MINOR@/$k3s_minor/g" \
-      "$repo/butane/k3s.yaml" | butane > "$work/config.ign"
-    ;;
+  flatcar) fragments=(base) ;;
+  flatcar-k3s) fragments=(base k3s) ;;
+  flatcar-tailscale) fragments=(base tailscale) ;;
+  flatcar-k3s-tailscale) fragments=(base k3s tailscale) ;;
   *)
     echo "unknown variant: $variant" >&2
     exit 1
     ;;
 esac
+
+k3s_minor=$(echo "$k3s_version" | cut -d. -f1-2)
+
+{
+  printf 'variant: flatcar\nversion: 1.1.0\n\nignition:\n  config:\n    merge:\n'
+  for fragment in "${fragments[@]}"; do
+    sed -e "s/@K3S_VERSION@/$k3s_version/g" \
+      -e "s/@K3S_MINOR@/$k3s_minor/g" \
+      -e "s/@TAILSCALE_VERSION@/$tailscale_version/g" \
+      "$repo/butane/$fragment.yaml" | butane > "$work/$fragment.ign"
+    printf '      - local: %s.ign\n' "$fragment"
+  done
+  printf '\nstorage:\n  files:\n    - path: /etc/hostname\n      mode: 0644\n      overwrite: true\n      contents:\n        inline: %s\n' "$variant"
+} > "$work/config.yaml"
+butane < "$work/config.yaml" > "$work/config.ign"
 
 curl -fsSL -o "$work/flatcar-install" \
   https://raw.githubusercontent.com/flatcar/init/flatcar-master/bin/flatcar-install
