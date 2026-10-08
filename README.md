@@ -26,6 +26,21 @@ reachable from anywhere other than your Mac.
 
 Configuration is applied by Ignition on first boot, so the first start takes a little longer.
 
+### Logging in with a key
+
+Share a directory named `ssh` that holds an `authorized_keys` file:
+
+```sh
+mkdir -p ~/.config/flatcar-ssh
+cp ~/.ssh/id_ed25519.pub ~/.config/flatcar-ssh/authorized_keys
+tart run flatcar --dir ssh:~/.config/flatcar-ssh:ro
+ssh admin@$(tart ip flatcar)
+```
+
+On every boot the file is installed as admin's `~/.ssh/authorized_keys`, so changing the keys
+takes a reboot. `admin` has passwordless `sudo`, so once a key works you can lock the password with
+`sudo passwd -l admin`.
+
 ### Tailscale
 
 In the `-tailscale` images `tailscaled` runs at boot. Join your tailnet with:

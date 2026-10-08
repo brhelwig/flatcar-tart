@@ -41,3 +41,18 @@ systemd:
 
         [Install]
         WantedBy=multi-user.target
+    - name: tart-ssh-keys.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Install admin's SSH keys from the Tart ssh share
+        RequiresMountsFor=/mnt/host
+
+        [Service]
+        Type=oneshot
+        ExecCondition=/usr/bin/test -f /mnt/host/ssh/authorized_keys
+        ExecStart=/usr/bin/install -d -m 0700 -o admin -g admin /home/admin/.ssh
+        ExecStart=/usr/bin/install -m 0600 -o admin -g admin /mnt/host/ssh/authorized_keys /home/admin/.ssh/authorized_keys
+
+        [Install]
+        WantedBy=multi-user.target
