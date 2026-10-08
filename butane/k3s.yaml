@@ -1,0 +1,51 @@
+variant: flatcar
+version: 1.1.0
+
+ignition:
+  config:
+    merge:
+      - local: base.ign
+
+storage:
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      overwrite: true
+      contents:
+        inline: flatcar-k3s
+    - path: /opt/extensions/k3s/k3s-@K3S_VERSION@-arm64.raw
+      mode: 0644
+      contents:
+        source: https://extensions.flatcar.org/extensions/k3s-@K3S_VERSION@-arm64.raw
+    - path: /etc/sysupdate.k3s-@K3S_MINOR@.d/k3s-@K3S_MINOR@.conf
+      contents:
+        source: https://extensions.flatcar.org/extensions/k3s/k3s-@K3S_MINOR@.conf
+    - path: /etc/sysupdate.d/noop.conf
+      contents:
+        source: https://extensions.flatcar.org/extensions/noop.conf
+    - path: /etc/rancher/k3s/config.yaml
+      mode: 0644
+      contents:
+        inline: |
+          write-kubeconfig-mode: "0644"
+  links:
+    - path: /etc/extensions/k3s.raw
+      target: /opt/extensions/k3s/k3s-@K3S_VERSION@-arm64.raw
+      hard: false
+    - path: /etc/systemd/system/multi-user.target.wants/k3s.service
+      target: /usr/local/lib/systemd/system/k3s.service
+      overwrite: true
+
+systemd:
+  units:
+    - name: systemd-sysupdate.timer
+      enabled: true
+    - name: systemd-sysupdate.service
+      dropins:
+        - name: k3s.conf
+          contents: |
+            [Service]
+            ExecStartPre=/usr/bin/sh -c "readlink --canonicalize /etc/extensions/k3s.raw > /tmp/k3s"
+            ExecStartPre=/usr/lib/systemd/systemd-sysupdate -C k3s-@K3S_MINOR@ update
+            ExecStartPost=/usr/bin/sh -c "readlink --canonicalize /etc/extensions/k3s.raw > /tmp/k3s-new"
+            ExecStartPost=/usr/bin/sh -c "if ! cmp --silent /tmp/k3s /tmp/k3s-new; then touch /run/reboot-required; fi"

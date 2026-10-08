@@ -1,0 +1,118 @@
+name: build
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if the Flatcar version is already published
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+      changed: ${{ steps.decide.outputs.changed }}
+      flatcar_version: ${{ steps.versions.outputs.flatcar_version }}
+      k3s_version: ${{ steps.versions.outputs.k3s_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flatcar_version=$(curl -fsSL https://stable.release.flatcar-linux.net/arm64-usr/current/version.txt | sed -n 's/^FLATCAR_VERSION=//p')
+          k3s_version=$(gh release list -R flatcar/sysext-bakery --limit 1000 --json tagName --jq '.[].tagName' \
+            | sed -n 's/^k3s-\(v[0-9]*\.[0-9]*\.[0-9]*+k3s[0-9]*\)$/\1/p' | sort -V | tail -n 1)
+          test -n "$flatcar_version"
+          test -n "$k3s_version"
+          echo "flatcar_version=$flatcar_version" >> "$GITHUB_OUTPUT"
+          echo "k3s_version=$k3s_version" >> "$GITHUB_OUTPUT"
+          echo "Flatcar $flatcar_version, k3s $k3s_version" >> "$GITHUB_STEP_SUMMARY"
+      - id: decide
+        env:
+          FLATCAR_VERSION: ${{ steps.versions.outputs.flatcar_version }}
+          EVENT: ${{ github.event_name }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          published=$(cat FLATCAR_VERSION 2>/dev/null || true)
+          changed=false
+          if [ "$published" != "$FLATCAR_VERSION" ]; then
+            changed=true
+          fi
+          build=$changed
+          if [ "$EVENT" = push ] || [ "$FORCE" = true ]; then
+            build=true
+          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+  disk:
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        variant: [flatcar, flatcar-k3s]
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y btrfs-progs lvm2 gawk zstd
+      - run: ./scripts/build-disk.sh "${{ matrix.variant }}" "${{ needs.check.outputs.flatcar_version }}" "${{ needs.check.outputs.k3s_version }}" "$RUNNER_TEMP/disk.img.zst"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: disk-${{ matrix.variant }}
+          path: ${{ runner.temp }}/disk.img.zst
+          compression-level: 0
+          retention-days: 1
+
+  package:
+    needs: [check, disk]
+    runs-on: macos-15
+    strategy:
+      matrix:
+        variant: [flatcar, flatcar-k3s]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: disk-${{ matrix.variant }}
+          path: ${{ runner.temp }}
+      - run: brew install cirruslabs/cli/tart zstd
+      - env:
+          TART_REGISTRY_HOSTNAME: ghcr.io
+          TART_REGISTRY_USERNAME: ${{ github.actor }}
+          TART_REGISTRY_PASSWORD: ${{ github.token }}
+        run: ./scripts/package-tart.sh "${{ matrix.variant }}" "${{ needs.check.outputs.flatcar_version }}" "$RUNNER_TEMP/disk.img.zst" "ghcr.io/${{ github.repository_owner }}" "${{ github.server_url }}/${{ github.repository }}"
+
+  record:
+    needs: [check, package]
+    if: needs.check.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          FLATCAR_VERSION: ${{ needs.check.outputs.flatcar_version }}
+        run: |
+          echo "$FLATCAR_VERSION" > FLATCAR_VERSION
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add FLATCAR_VERSION
+          git commit -m "Publish Flatcar $FLATCAR_VERSION"
+          git pull --rebase origin main
+          git push origin HEAD:main

@@ -1,0 +1,42 @@
+variant: flatcar
+version: 1.1.0
+
+passwd:
+  users:
+    - name: admin
+      password_hash: $6$flatcartart$ebvat83BT6X3Z6GBYG79JNy.dNIuC1v80fS6sDWbOlPQS.2cGH2UhheFtg9/efBu3jQiuRtr3xOYF6H744yqB1
+      groups:
+        - sudo
+        - docker
+
+storage:
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      overwrite: true
+      contents:
+        inline: flatcar
+
+systemd:
+  units:
+    - name: mnt-host.mount
+      contents: |
+        [Unit]
+        Description=Tart shared directories
+
+        [Mount]
+        What=com.apple.virtio-fs.automount
+        Where=/mnt/host
+        Type=virtiofs
+        Options=nofail
+    - name: mnt-host.automount
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Tart shared directories
+
+        [Automount]
+        Where=/mnt/host
+
+        [Install]
+        WantedBy=multi-user.target
