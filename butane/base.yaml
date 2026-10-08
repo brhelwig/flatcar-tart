@@ -9,6 +9,15 @@ passwd:
         - sudo
         - docker
 
+storage:
+  files:
+    - path: /etc/systemd/network/zz-default.network.d/tart.conf
+      mode: 0644
+      contents:
+        inline: |
+          [DHCPv4]
+          ClientIdentifier=mac
+
 systemd:
   units:
     - name: mnt-host.mount

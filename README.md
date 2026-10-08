@@ -83,7 +83,7 @@ tart run flatcar --serial
 ## Updates
 
 A [workflow](.github/workflows/build.yml) checks Flatcar's stable channel daily. When a new release
-appears it builds both images, pushes them to GHCR and records the version in `FLATCAR_VERSION`.
+appears it builds all four images, pushes them to GHCR and records the version in `FLATCAR_VERSION`.
 A fresh `tart clone …:latest` always gets the newest release.
 
 Running VMs update themselves through Flatcar's own update engine.
