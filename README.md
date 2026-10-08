@@ -5,8 +5,8 @@
 
 | Image | Contents |
 |---|---|
-| `ghcr.io/brhelwig/flatcar` | Flatcar |
-| `ghcr.io/brhelwig/flatcar-k3s` | Flatcar with a single-node [k3s](https://k3s.io/) server |
+| `ghcr.io/brhelwig/flatcar` | Flatcar with [Tailscale](https://tailscale.com/) |
+| `ghcr.io/brhelwig/flatcar-k3s` | Flatcar with Tailscale and a single-node [k3s](https://k3s.io/) server |
 
 Tags: `latest` and `stable` follow the newest Flatcar stable release; `<version>` (for example
 `4757.2.1`) pins one.
@@ -23,6 +23,17 @@ Username and password are both `admin`. Change the password after first login if
 reachable from anywhere other than your Mac.
 
 Configuration is applied by Ignition on first boot, so the first start takes a little longer.
+
+### Tailscale
+
+`tailscaled` runs at boot. Join your tailnet with:
+
+```sh
+sudo tailscale up
+```
+
+Tailscale comes from the [Flatcar sysext bakery](https://github.com/flatcar/sysext-bakery) and
+receives updates through `systemd-sysupdate`.
 
 ### k3s
 

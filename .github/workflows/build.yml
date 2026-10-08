@@ -29,6 +29,7 @@ jobs:
       changed: ${{ steps.decide.outputs.changed }}
       flatcar_version: ${{ steps.versions.outputs.flatcar_version }}
       k3s_version: ${{ steps.versions.outputs.k3s_version }}
+      tailscale_version: ${{ steps.versions.outputs.tailscale_version }}
     steps:
       - uses: actions/checkout@v5
       - id: versions
@@ -36,13 +37,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           flatcar_version=$(curl -fsSL https://stable.release.flatcar-linux.net/arm64-usr/current/version.txt | sed -n 's/^FLATCAR_VERSION=//p')
-          k3s_version=$(gh release list -R flatcar/sysext-bakery --limit 1000 --json tagName --jq '.[].tagName' \
-            | sed -n 's/^k3s-\(v[0-9]*\.[0-9]*\.[0-9]*+k3s[0-9]*\)$/\1/p' | sort -V | tail -n 1)
+          tags=$(gh release list -R flatcar/sysext-bakery --limit 1000 --json tagName --jq '.[].tagName')
+          k3s_version=$(echo "$tags" | sed -n 's/^k3s-\(v[0-9]*\.[0-9]*\.[0-9]*+k3s[0-9]*\)$/\1/p' | sort -V | tail -n 1)
+          tailscale_version=$(echo "$tags" | sed -n 's/^tailscale-\(v[0-9]*\.[0-9]*\.[0-9]*\)$/\1/p' | sort -V | tail -n 1)
           test -n "$flatcar_version"
           test -n "$k3s_version"
+          test -n "$tailscale_version"
           echo "flatcar_version=$flatcar_version" >> "$GITHUB_OUTPUT"
           echo "k3s_version=$k3s_version" >> "$GITHUB_OUTPUT"
-          echo "Flatcar $flatcar_version, k3s $k3s_version" >> "$GITHUB_STEP_SUMMARY"
+          echo "tailscale_version=$tailscale_version" >> "$GITHUB_OUTPUT"
+          echo "Flatcar $flatcar_version, k3s $k3s_version, Tailscale $tailscale_version" >> "$GITHUB_STEP_SUMMARY"
       - id: decide
         env:
           FLATCAR_VERSION: ${{ steps.versions.outputs.flatcar_version }}
@@ -73,7 +77,7 @@ jobs:
       - run: |
           sudo apt-get update
           sudo apt-get install -y btrfs-progs lvm2 gawk zstd
-      - run: ./scripts/build-disk.sh "${{ matrix.variant }}" "${{ needs.check.outputs.flatcar_version }}" "${{ needs.check.outputs.k3s_version }}" "$RUNNER_TEMP/disk.img.zst"
+      - run: ./scripts/build-disk.sh "${{ matrix.variant }}" "${{ needs.check.outputs.flatcar_version }}" "${{ needs.check.outputs.k3s_version }}" "${{ needs.check.outputs.tailscale_version }}" "$RUNNER_TEMP/disk.img.zst"
       - uses: actions/upload-artifact@v7
         with:
           name: disk-${{ matrix.variant }}

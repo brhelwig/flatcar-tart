@@ -16,9 +16,37 @@ storage:
       overwrite: true
       contents:
         inline: flatcar
+    - path: /opt/extensions/tailscale/tailscale-@TAILSCALE_VERSION@-arm64.raw
+      mode: 0644
+      contents:
+        source: https://extensions.flatcar.org/extensions/tailscale-@TAILSCALE_VERSION@-arm64.raw
+    - path: /etc/sysupdate.tailscale.d/tailscale.conf
+      contents:
+        source: https://extensions.flatcar.org/extensions/tailscale.conf
+    - path: /etc/sysupdate.d/noop.conf
+      contents:
+        source: https://extensions.flatcar.org/extensions/noop.conf
+  links:
+    - path: /etc/extensions/tailscale.raw
+      target: /opt/extensions/tailscale/tailscale-@TAILSCALE_VERSION@-arm64.raw
+      hard: false
+    - path: /etc/systemd/system/multi-user.target.wants/tailscaled.service
+      target: /usr/local/lib/systemd/system/tailscaled.service
+      overwrite: true
 
 systemd:
   units:
+    - name: systemd-sysupdate.timer
+      enabled: true
+    - name: systemd-sysupdate.service
+      dropins:
+        - name: tailscale.conf
+          contents: |
+            [Service]
+            ExecStartPre=/usr/bin/sh -c "readlink --canonicalize /etc/extensions/tailscale.raw > /tmp/tailscale"
+            ExecStartPre=/usr/lib/systemd/systemd-sysupdate -C tailscale update
+            ExecStartPost=/usr/bin/sh -c "readlink --canonicalize /etc/extensions/tailscale.raw > /tmp/tailscale-new"
+            ExecStartPost=/usr/bin/sh -c "if ! cmp --silent /tmp/tailscale /tmp/tailscale-new; then touch /run/reboot-required; fi"
     - name: mnt-host.mount
       contents: |
         [Unit]

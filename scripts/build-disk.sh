@@ -4,7 +4,8 @@ set -euo pipefail
 variant=$1
 flatcar_version=$2
 k3s_version=$3
-output=$4
+tailscale_version=$4
+output=$5
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d)
@@ -15,7 +16,7 @@ butane() {
   docker run --rm -i -v "$work:/files:ro" "$butane_image" --strict --files-dir /files
 }
 
-butane < "$repo/butane/base.yaml" > "$work/base.ign"
+sed -e "s/@TAILSCALE_VERSION@/$tailscale_version/g" "$repo/butane/base.yaml" | butane > "$work/base.ign"
 
 case "$variant" in
   flatcar)
